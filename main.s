@@ -1,11 +1,11 @@
-;|--------------------------------------------------|
+;|==================================================|
 ;|*               CS1 - KCL - Year 1               *|
-;|            4CCS1CS1 Computer Systems             |
-;|                  Coursework 1                    |
-;|          Property off Krishiv Agrawal            |
-;|                   K25000843                      |
-;|            15% of Final Module Grade             |
-;|--------------------------------------------------|   
+;|*           4CCS1CS1 Computer Systems            *|
+;|*                 Coursework 1                   *|
+;|*     Property off: Krishiv Agrawal              *|
+;|*     Student ID: K25000843                      *|
+;|*     Weighting: 15% of Final Module Grade       *|
+;|==================================================|   
 
 
 ;|--------------------------------------------------|
@@ -15,11 +15,20 @@
 .equ PORTB  ,  0x05    ;Output Register for PORTB
 .equ DDRB   ,  0x04    ;Data Direction Register for PORTB
 
-;|--------------------------------------------------|
-;|                 Start Execution                  |
-;|--------------------------------------------------|
-.org 0                 ;Start address
-rjmp main
+;---------------------------
+; Data Segment (.dseg)
+;---------------------------
+.dseg
+DIGITS: .byte 8         ; store digits of 25000843
+KA:     .byte 2         ; store characters 'k' 'a'
+KRISH:  .byte 5         ; store characters 'k' 'r' 'i'
+
+;---------------------------
+; Code Segment (.cseg)
+;---------------------------
+.cseg
+.org 0x0000             ; Reset vector (program start)
+rjmp main               ; Jump to main code
 
 ;|--------------------------------------------------|
 ;|                  Main Program                    |
@@ -29,11 +38,16 @@ main:
     ldi r16, 0
     out SREG, r16
 
+
+    rcall task1
+
 ;|--------------------------------------------------|
 ;|                   Help Methods                   |
 ;|--------------------------------------------------|
 
-;|----------------------DELAY-----------------------|
+;|--------------------------
+;|  Precise Delay
+;|--------------------------
 ; 16MHz, takes value in r16 = factor (100 ≈ 1s)
 ; Uses r20, r21, r22 internally but restores original value before returning (via push/pop)
 ; Delay Mechanism:
@@ -59,6 +73,7 @@ outer_loop:
     nop
     nop
     nop
+    
     ldi r21, 188
 middle_loop:
     ldi r22, 212
@@ -89,9 +104,10 @@ inner_loop:
 ; No delay between digits, example, after 00010 for 1s will immediately display 0101 for 1s
 task1:
 
+    ret
 task2:
-
+    ret
 task3:
-
+    ret
 task4:
-
+    ret
