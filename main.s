@@ -35,8 +35,8 @@ rjmp main               ; Jump to main code
 ;|--------------------------------------------------|
 main:
     ; Clear SREG
-    ldi r16, 0
-    out SREG, r16
+    LDI r16, 0
+    OUT SREG, r16
 
 
     rcall task1
@@ -49,7 +49,7 @@ main:
 ;|  Precise Delay
 ;|--------------------------
 ; 16MHz, takes value in r16 = factor (100 ≈ 1s)
-; Uses r20, r21, r22 internally but restores original value before returning (via push/pop)
+; Uses r20, r21, r22 internally but restores original value before RETurning (via PUSH/POP)
 ; Delay Mechanism:
 ; - r20 = outer loop counter, set from r16
 ; - r21, r22 = middle and inner loop counters, 188 and 212 (Numbers chosen give good approx)
@@ -58,56 +58,104 @@ main:
 ; Outer loop:            (9 + 1 + 159,987 + 1 + 2) * 100 - 1 = 15,999,999 cycles (r20=r16=100 used as example for 1s delay)
 ; Final delay:           15,999,999 + (3 * 2) + 1 + (3* 2) + 4 = 16,000,016 cycles = ~1s
 precise_delay:
-    push r20
-    push r21
-    push r22
+    PUSH r20
+    PUSH r21
+    PUSH r22
 
-    mov r20, r16    ;Stores delay factor
+    MOV r20, r16    ;Stores delay factor
 outer_loop:
-    nop                 ; 9xnop for precision
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    
-    ldi r21, 188
+    NOP                 ; 9xNOP for precision
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+
+    LDI r21, 188
 middle_loop:
-    ldi r22, 212
+    LDI r22, 212
 inner_loop:
-    nop
-    dec r22
-    brne inner_loop
+    NOP
+    DEC r22
+    BRNE inner_loop
 
-    dec r21
-    brne middle_loop
+    DEC r21
+    BRNE middle_loop
 
-    dec r20
-    brne outer_loop
+    DEC r20
+    BRNE outer_loop
 
-    pop r22
-    pop r21
-    pop r20
+    POP r22
+    POP r21
+    POP r20
 
-    ret
-
-
+    RET
     
 ;|--------------------------------------------------|
 ;|                      TASKS                       |
 ;|--------------------------------------------------|
+
+;|--------------------------
+;|  TASK 1
+;|--------------------------
 ; Displays k-number writing left-most numerical digit first
 ; Each digit displayed for 1s
 ; No delay between digits, example, after 00010 for 1s will immediately display 0101 for 1s
 task1:
+    ;Load the digits of K-number into SRAM seperately
+    LDI r16, 2
+    STS DIGITS+0, r16
+    LDI r16, 5
+    STS DIGITS+1, r16
+    LDI r16, 0
+    STS DIGITS+2, r16
+    LDI r16, 0
+    STS DIGITS+3, r16
+    LDI r16, 0
+    STS DIGITS+4, r16
+    LDI r16, 8
+    STS DIGITS+5, r16
+    LDI r16, 4
+    STS DIGITS+6, r16
+    LDI r16, 3
+    STS DIGITS+7, r16
 
-    ret
+    ; Loop through the digits and display each one at a time
+    ; r30:r31 used as pointers
+    LDI ZH, HIGH(DIGITS)    ; DIGITS stored ZH:ZL
+    LDI ZL, LOW(DIGITS)
+    LDI r17, 8              ; 8 digits in total
+
+loopThroughDigits:
+    LDI r18, Z+             ; Load value at Z
+    
+    ;Display
+    OUT PORTB, r18
+    ldi r16, 0x000A         ;1sec delay
+    rcall precise_delay
+
+    DEC r17
+    BRNE loopThroughDigits  ; Repeats 8 times
+    
+    RET
+
+;|--------------------------
+;|  TASK 2
+;|--------------------------
 task2:
-    ret
+    RET
+
+;|--------------------------
+;|  TASK 3
+;|--------------------------
 task3:
-    ret
+    RET
+
+;|--------------------------
+;|  TASK 4
+;|--------------------------
 task4:
-    ret
+    RET
