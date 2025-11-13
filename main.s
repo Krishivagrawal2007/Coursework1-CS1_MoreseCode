@@ -16,17 +16,15 @@
 .equ DDRB   ,  0x04    ;Data Direction Register for PORTB
 
 ;---------------------------
-; Data Segment (.dseg)
+; Data Segment
 ;---------------------------
-.dseg
-DIGITS: .byte 8         ; store digits of 25000843
-KA:     .byte 2         ; store characters 'k' 'a'
-KRISH:  .byte 5         ; store characters 'k' 'r' 'i'
+.equ DIGITS, 0x0100    ; store digits of 25000843
+.equ KA,   DIGITS + 8  ; store characters 'k' 'a'
+.equ KRISH,   KA + 2   ; store characters 'k' 'r' 'i'
 
 ;---------------------------
-; Code Segment (.cseg)
+; Code Segment
 ;---------------------------
-.cseg
 .org 0x0000             ; Reset vector (program start)
 rjmp main               ; Jump to main code
 
@@ -35,11 +33,14 @@ rjmp main               ; Jump to main code
 ;|--------------------------------------------------|
 main:
     ; Clear SREG
-    LDI r16, 0
+    LDI r16, 0x00
     OUT SREG, r16
 
+    LDI r16, 0x0F
+    OUT DDRB, r16
 
     rcall task1
+    rjmp main
 
 ;|--------------------------------------------------|
 ;|                   Help Methods                   |
@@ -101,11 +102,11 @@ inner_loop:
 ;|--------------------------
 ;|  TASK 1
 ;|--------------------------
-; Displays k-number writing left-most numerical digit first
+; Displays k-number writing left-most numerical digit first (2500843: 0010-->0101-->0000-->0000-->0000-->1000-->0100-->0011)
 ; Each digit displayed for 1s
 ; No delay between digits, example, after 00010 for 1s will immediately display 0101 for 1s
 task1:
-    ;Load the digits of K-number into SRAM seperately
+    ;Load the digits of K-number seperately
     LDI r16, 2
     STS DIGITS+0, r16
     LDI r16, 5
@@ -125,16 +126,18 @@ task1:
 
     ; Loop through the digits and display each one at a time
     ; r30:r31 used as pointers
-    LDI ZH, HIGH(DIGITS)    ; DIGITS stored ZH:ZL
-    LDI ZL, LOW(DIGITS)
+    LDI r30, lo8(DIGITS)
+    LDI r31, hi8(DIGITS)
+
     LDI r17, 8              ; 8 digits in total
 
 loopThroughDigits:
-    LDI r18, Z+             ; Load value at Z
+    LD r18, Z+             ; Load value at Z, this increments every loop
     
     ;Display
     OUT PORTB, r18
-    ldi r16, 0x000A         ;1sec delay
+    
+    ldi r16, 0x64         ;1sec delay with r16 = 100
     rcall precise_delay
 
     DEC r17
