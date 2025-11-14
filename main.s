@@ -13,14 +13,16 @@
 ;|--------------------------------------------------|
 .equ SREG   ,  0x3f    ;Status Register
 .equ PORTB  ,  0x05    ;Output Register for PORTB
+.equ PORTD  ,  0x0A    ;Output Register for PORTD
 .equ DDRB   ,  0x04    ;Data Direction Register for PORTB
+.equ DDRD   ,  0x0B    ;Data Direction Register for PORTD
 
 ;---------------------------
 ; Data Segment
 ;---------------------------
 .equ DIGITS, 0x0100    ; store digits of 25000843
-.equ KA,   DIGITS + 8  ; store characters 'k' 'a'
-.equ KRISH,   KA + 2   ; store characters 'k' 'r' 'i'
+.equ KA,   DIGITS + 8  ; store characters 'k' '.' 'a' = '11' '27' '1'
+.equ KRI,   KA + 3   ; store characters morse code for 'k' 'r' 'i'
 
 ;---------------------------
 ; Code Segment
@@ -39,7 +41,11 @@ main:
     LDI r16, 0x0F
     OUT DDRB, r16
 
-    rcall task1
+
+    LDI r16, 0xF0
+    OUT DDRD, r16
+
+    rcall task3
     rjmp main
 
 ;|--------------------------------------------------|
@@ -148,13 +154,149 @@ loopThroughDigits:
 ;|--------------------------
 ;|  TASK 2
 ;|--------------------------
+; Displays K.A writing left-most numerical letter first (K.A: 11 --> 27 --> 1 = 00001011 --> 00011011 --> 00000001)
+; Each letter displayed for 1s
+; No delay between letters, example, after 00001011 for 1s will immediately display 00011011 for 1s
 task2:
+    ;Load the digits of K-number seperately
+    LDI r16, 11
+    STS KA+0, r16
+    LDI r16, 27
+    STS KA+1, r16
+    LDI r16, 1
+    STS KA+2, r16
+
+    ; Loop through the letters and display each one at a time
+    ; r30:r31 used as pointers
+    LDI r30, lo8(KA)
+    LDI r31, hi8(KA)
+
+    LDI r17, 3              ; 8 digits in total
+
+loopThroughInitials:
+    LD r18, Z+             ; Load value at Z, this increments every loop
+    
+    ;Display
+    OUT PORTB, r18
+    OUT PORTD, r18
+    
+    ldi r16, 0x64         ;1sec delay with r16 = 100
+    rcall precise_delay
+
+    DEC r17
+    BRNE loopThroughInitials  ; Repeats 3 times
+    
     RET
 
 ;|--------------------------
 ;|  TASK 3
 ;|--------------------------
+; Loads in the morse code sequence to be displayed (hardcoded)
+; Loops through the sequence and displays the dots, dashes and gaps
+; Represents KRI, which is given by - . -   . - .   . .       , represented in code by 2,1,2,0,1,2,1,0,1,1
+; 0 --> Gap between letters (400ms), 1 --> Dot (200ms on, 200ms off), 2 --> dash (600ms on, 200ms off)
 task3:
+    ;Load the sequence of morse code (0=letterGap, 1=dot, 2=dash)
+    LDI r16, 2
+    STS KRI+0, r16
+    LDI r16, 1
+    STS KRI+1, r16
+    LDI r16, 2
+    STS KRI+2, r16
+    LDI r16, 0
+    STS KRI+3, r16
+    LDI r16, 1
+    STS KRI+4, r16
+    LDI r16, 2
+    STS KRI+5, r16
+    LDI r16, 1
+    STS KRI+6, r16
+    LDI r16, 0
+    STS KRI+7, r16
+    LDI r16, 1
+    STS KRI+8, r16
+    LDI r16, 1
+    STS KRI+9, r16
+    ; Loop through the sequence and display each one at a time
+    ; r30:r31 used as pointers
+    LDI r30, lo8(KRI)
+    LDI r31, hi8(KRI)
+
+    LDI r17, 10              ; 10 in total
+
+loopThroughSequence:
+    LD r18, Z+             ; Load value at Z, this increments every loop
+    
+    ;Display
+    rcall displayMorseCode
+
+    DEC r17
+    BRNE loopThroughSequence  ; Repeats
+
+    ; Word KRI has been written and so a gap for 6 units is displayed, 1200ms (1unit already taken when last dot/dash was called) 
+    LDI r16, 0x00
+    OUT PORTB, r16
+    OUT PORTD, r16
+    LDI r16, 0x78
+    rcall precise_delay
+    
+    RET
+
+# Compares current value being proccesed to check if it is a dot, dash or a gap between letters of same word
+displayMorseCode:
+    CPI r18, 0
+    BREQ letterGap
+
+    CPI r18, 1
+    BREQ dot
+
+    CPI r18, 2
+    BREQ dash
+
+    RET
+
+; Dot turns ON LED for 1 unit then turns off for 1 unit
+dot:
+    ;LED's on for 200ms
+    LDI r16, 0xFF
+    OUT PORTB, r16
+    OUT PORTD, r16
+    LDI r16, 0x14
+    rcall precise_delay
+
+    ;LED's off for 200 ms
+    LDI r16, 0x00
+    OUT PORTB, r16
+    OUT PORTD, r16
+    LDI r16, 0x14
+    rcall precise_delay
+    RET
+
+; Dash turns ON LED for 3 units and OFF for 1 unit
+dash:
+    ;LED's on for 600ms
+    LDI r16, 0xFF
+    OUT PORTB, r16
+    OUT PORTD, r16
+    LDI r16, 0x3C
+    rcall precise_delay
+    
+    ;LED's off for 200 ms
+    LDI r16, 0x00
+    OUT PORTB, r16
+    OUT PORTD, r16
+    LDI r16, 0x14
+    rcall precise_delay
+    RET
+
+; letterGap turns OFF LED for 2 units only, gap between letters of the same word
+letterGap:
+    ;LED's off for 2 units, 400ms (1 unit already done when dot/dash is called)
+    LDI r16, 0x00
+    OUT PORTB, r16
+    OUT PORTD, r16
+    LDI r16, 0x28
+    rcall precise_delay
     RET
 
 ;|--------------------------
