@@ -38,14 +38,18 @@ main:
     LDI r16, 0x00
     OUT SREG, r16
 
+    ; Put first 4 bits of PORTB in output mode
     LDI r16, 0x0F
     OUT DDRB, r16
 
-
+    ; Put most significant 4 bits of POTD in output mode
     LDI r16, 0xF0
     OUT DDRD, r16
 
+    rcall task1
+    rcall task2
     rcall task3
+    rcall task4
     rjmp main
 
 ;|--------------------------------------------------|
@@ -64,6 +68,7 @@ main:
 ; Middle loop r21=188:   (847 + 1 + 1 + 2) * 188 - 1 = 159,987 cycles
 ; Outer loop:            (9 + 1 + 159,987 + 1 + 2) * 100 - 1 = 15,999,999 cycles (r20=r16=100 used as example for 1s delay)
 ; Final delay:           15,999,999 + (3 * 2) + 1 + (3* 2) + 4 = 16,000,016 cycles = ~1s
+; Used Ai to compute the values in r21 and r22 and number of NOP statements used for a much better approximate of delay
 precise_delay:
     PUSH r20
     PUSH r21
@@ -142,6 +147,7 @@ loopThroughDigits:
     
     ;Display
     OUT PORTB, r18
+    OUT PORTD, r18
     
     ldi r16, 0x64         ;1sec delay with r16 = 100
     rcall precise_delay
@@ -194,9 +200,92 @@ loopThroughInitials:
 ; Loads in the morse code sequence to be displayed (hardcoded)
 ; Loops through the sequence and displays the dots, dashes and gaps
 ; Represents KRI, which is given by - . -   . - .   . .       , represented in code by 2,1,2,0,1,2,1,0,1,1
+; Represents IRK, which is given by . .   . - .   - . -       , represented in code by 1,1,0,1,2,1,0,2,1,2
 ; 0 --> Gap between letters (400ms), 1 --> Dot (200ms on, 200ms off), 2 --> dash (600ms on, 200ms off)
+; Iterates 50 times.
+; Odd iteration --> display KRI
+; Even iteration --> display IRK
 task3:
-    ;Load the sequence of morse code (0=letterGap, 1=dot, 2=dash)
+    LDI r19, 1        ; loop counter
+
+iterate50Times:
+    ; Check odd/even
+    MOV r20, r19       ; copy loop counter
+    ANDI r20, 1        ; r20 = r19 & 1  (1=odd, 0=even)
+
+    CPI r20, 1
+    BREQ loadKRI       ; if odd → branch to KRI
+
+; Loading is done as follows:
+;       -Sequence stored in memory
+;       -Loops through sequence and displays each part of the sequnce until end
+loadIRK:
+    rcall evenSequenceIRK
+    rcall task3DisplaySequence
+    RJMP afterLoad
+
+loadKRI:
+    rcall oddSequenceKRI
+    rcall task3DisplaySequence
+
+afterLoad:
+    INC r19
+    CPI r19, 11
+    BRNE iterate50Times ;Continue iteration
+    RET
+
+; Repeatedly subtract 5 until number < 5, and check if remainder is 0 (=0 : divisible by 5, !=0 : not divisible by 5)
+checkDivBy5:
+    MOV r21, r19
+div5_loop:
+    CPI r21, 5
+    BRLO notDivBy5
+    SUBI r21, 5
+    RJMP div5_loop
+notDivBy5:
+    CPI r21, 0
+    BREQ display5
+    RET
+display5:
+    rcall displayFiveDots
+    RET
+displayFiveDots:
+    LDI r22, 5          ; counter for five dots
+disp5_loop:
+    RCALL dot
+    DEC r22
+    BRNE disp5_loop
+    RET
+
+task3DisplaySequence:
+    ; Loop through the sequence and display each one at a time
+    ; r30:r31 used as pointers
+    LDI r30, lo8(KRI)
+    LDI r31, hi8(KRI)
+
+    LDI r17, 10              ; 10 in total
+
+loopThroughSequence:
+    LD r18, Z+             ; Load value at Z, this increments every loop
+    
+    ;Display
+    rcall displayMorseCode
+
+    DEC r17
+    BRNE loopThroughSequence  ; Repeats
+
+    rcall checkDivBy5   ;Add 5 at the end if iteration is a multiple of 5
+
+    ; Word KRI/IRK/5 has been written and so a gap for 6 units is displayed, 1200ms (1unit already taken when last dot/dash was called) 
+    LDI r16, 0x00
+    OUT PORTB, r16
+    OUT PORTD, r16
+    LDI r16, 0x78
+    rcall precise_delay
+    
+    RET
+
+oddSequenceKRI:
     LDI r16, 2
     STS KRI+0, r16
     LDI r16, 1
@@ -217,29 +306,29 @@ task3:
     STS KRI+8, r16
     LDI r16, 1
     STS KRI+9, r16
-    ; Loop through the sequence and display each one at a time
-    ; r30:r31 used as pointers
-    LDI r30, lo8(KRI)
-    LDI r31, hi8(KRI)
+    RET
 
-    LDI r17, 10              ; 10 in total
-
-loopThroughSequence:
-    LD r18, Z+             ; Load value at Z, this increments every loop
-    
-    ;Display
-    rcall displayMorseCode
-
-    DEC r17
-    BRNE loopThroughSequence  ; Repeats
-
-    ; Word KRI has been written and so a gap for 6 units is displayed, 1200ms (1unit already taken when last dot/dash was called) 
-    LDI r16, 0x00
-    OUT PORTB, r16
-    OUT PORTD, r16
-    LDI r16, 0x78
-    rcall precise_delay
-    
+evenSequenceIRK:
+    LDI r16, 1
+    STS KRI+0, r16
+    LDI r16, 1
+    STS KRI+1, r16
+    LDI r16, 0
+    STS KRI+2, r16
+    LDI r16, 1
+    STS KRI+3, r16
+    LDI r16, 2
+    STS KRI+4, r16
+    LDI r16, 1
+    STS KRI+5, r16
+    LDI r16, 0
+    STS KRI+6, r16
+    LDI r16, 2
+    STS KRI+7, r16
+    LDI r16, 1
+    STS KRI+8, r16
+    LDI r16, 2
+    STS KRI+9, r16
     RET
 
 # Compares current value being proccesed to check if it is a dot, dash or a gap between letters of same word
@@ -302,5 +391,31 @@ letterGap:
 ;|--------------------------
 ;|  TASK 4
 ;|--------------------------
+; Start at 10000000 and then using LSR the bit is shifted right giving 01000000
+; Repeat till you reach 00000001 and then start doing LSL to shift bit left resulting in 00000010
+; The process repeats till 10000000 and then it resets and loops forever
 task4:
+    LDI r17, 0x80
+
+pingPongLoopRight:
+    rcall displayPingPong
+    LSR r17
+    CPI r17, 0x01           ; 00000001
+    BREQ pingPongLoopLeft
+    rjmp pingPongLoopRight
+    
+pingPongLoopLeft:
+    rcall displayPingPong
+    LSL r17
+    CPI r17, 0x80           ; 10000000
+    BREQ pingPongLoopRight
+    rjmp pingPongLoopLeft
+
+displayPingPong:
+    OUT PORTB, r17
+    OUT PORTD, r17
+    LDI r16, 0x14
+    rcall precise_delay
     RET
+
+
